@@ -4,21 +4,33 @@ import logging
 from transformers import RagTokenizer, RagRetriever, RagSequenceForGeneration
 from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
+from Bio import Entrez
 
 logging.basicConfig(level=logging.INFO)
+Entrez.email = "gayatrirayasam@gmail.com"
+
+def fetch_pubmed_articles(num_articles=5):
+    handle = Entrez.esearch(db="pubmed", term="machine learning", retmax=num_articles)
+    record = Entrez.read(handle)
+    handle.close()
+    ids = record['IdList']
+    
+    articles = []
+    for pmid in ids:
+        handle = Entrez.efetch(db="pubmed", id=pmid, retmode="xml")
+        article = Entrez.read(handle)
+        handle.close()
+        title = article[0]['MedlineCitation']['Article']['ArticleTitle']
+        abstract = article[0]['MedlineCitation']['Article'].get('Abstract', {}).get('AbstractText', [''])[0]
+        articles.append(f"{title}. {abstract}")
+    return articles
+
+documents = fetch_pubmed_articles(num_articles=5)
 
 tokenizer = RagTokenizer.from_pretrained("facebook/rag-sequence-nq")
 retriever = RagRetriever.from_pretrained("facebook/rag-sequence-nq", use_dummy_dataset=False)
 model = RagSequenceForGeneration.from_pretrained("facebook/rag-sequence-nq")
 embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
-
-documents = [
-    "The Eiffel Tower is located in Paris, France.",
-    "The Great Wall of China is a series of fortifications made of various materials.",
-    "The Statue of Liberty was a gift from France to the United States.",
-    "Python is a programming language that lets you work quickly and integrate systems more effectively.",
-    "Machine learning is a subset of artificial intelligence that focuses on building systems that learn from data."
-]
 
 document_embeddings = embedding_model.encode(documents)
 
@@ -49,10 +61,10 @@ def batch_generate_answers(questions):
     return answers
 
 questions = [
-    "Where is the Eiffel Tower located?",
-    "What is the Great Wall of China?",
-    "Tell me about Python.",
-    "What is machine learning?"
+    "What is machine learning?",
+    "Can you explain the significance of PubMed?",
+    "What are the applications of machine learning in healthcare?",
+    "Tell me about recent advancements in machine learning."
 ]
 
 answers = batch_generate_answers(questions)
